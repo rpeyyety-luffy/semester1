@@ -10,6 +10,7 @@ from revision import REVISION
 
 HERE = Path(__file__).parent
 MATERIALS = HERE / "materials"
+GITHUB_RAW = "https://github.com/rpeyyety-luffy/semester1/raw/main/webpage/materials/"
 
 # Which PDF file holds the notes and the slides for each unit
 FILES = {
@@ -51,12 +52,7 @@ st.markdown(
     [data-testid="stExpander"] summary p { font-weight: 600; color: #1e293b; }
     [data-testid="stExpander"]:hover { border-color: #93b4f5 !important; }
 
-    .stTabs [data-baseweb="tab-list"] { gap: 0.4rem; }
-    .stTabs [data-baseweb="tab"] {
-        background: #ffffff; border: 1px solid #e3e8f2; border-radius: 10px 10px 0 0;
-        padding: 0.5rem 1.1rem; font-weight: 600;
-    }
-    .stTabs [aria-selected="true"] { background: #eef3fe; color: #1d4ed8; }
+    [data-testid="stButtonGroup"] button { font-weight: 600; padding: 0.45rem 1.1rem; }
 
     table { border-collapse: collapse; width: 100%; }
     thead tr th { background: #eef3fe !important; color: #1e3a8a !important; }
@@ -79,11 +75,11 @@ def page_count(filename):
     return len(pdfium.PdfDocument(str(MATERIALS / filename)))
 
 
-@st.cache_data(max_entries=60)
+@st.cache_data(max_entries=20)
 def page_image(filename, page_no):
     """Turn one PDF page (1-based) into a picture."""
     pdf = pdfium.PdfDocument(str(MATERIALS / filename))
-    return pdf[page_no - 1].render(scale=1.6).to_pil()
+    return pdf[page_no - 1].render(scale=1.3).to_pil()
 
 
 def show_page(filename, page_no):
@@ -107,13 +103,8 @@ def pdf_viewer(unit, kind):
     c1.button("◀ Prev", key=key + "-prev", on_click=move, args=(-1,), use_container_width=True)
     c2.number_input("Page", 1, total, key=key, label_visibility="collapsed")
     c3.button("Next ▶", key=key + "-next", on_click=move, args=(1,), use_container_width=True)
-    c4.download_button(
-        f"⬇ Download {kind} PDF",
-        (MATERIALS / filename).read_bytes(),
-        file_name=f"BoE_{unit.replace(' ', '')}_{kind}.pdf",
-        key=key + "-dl",
-        use_container_width=True,
-    )
+    # Download straight from GitHub so the app doesn't have to send big files itself
+    c4.link_button(f"⬇ Download {kind} PDF", GITHUB_RAW + filename, use_container_width=True)
     st.caption(f"Page {st.session_state[key]} of {total}")
     show_page(filename, st.session_state[key])
 
@@ -190,11 +181,15 @@ if search:
 
 # ---- 6b. Normal mode: tabs for the chosen unit ----
 else:
-    tab_qa, tab_notes, tab_slides, tab_rev = st.tabs(
-        ["❓ Q&A", "📝 Study notes", "📊 Slides", "⚡ Quick revision"]
-    )
+    # Only the chosen section is built (lighter and faster than tabs, which build all 4)
+    section = st.segmented_control(
+        "Section",
+        ["❓ Q&A", "📝 Study notes", "📊 Slides", "⚡ Quick revision"],
+        default="❓ Q&A",
+        label_visibility="collapsed",
+    ) or "❓ Q&A"
 
-    with tab_qa:
+    if section == "❓ Q&A":
         col1, col2 = st.columns([2, 1])
         level = col1.selectbox(
             "Bloom's level", ["All", "L3 – Apply", "L4 – Analyze", "L5 – Evaluate"]
@@ -208,11 +203,11 @@ else:
         ]
         show_questions(rows, open_all, searching=False)
 
-    with tab_notes:
+    elif section == "📝 Study notes":
         pdf_viewer(unit, "Notes")
 
-    with tab_slides:
+    elif section == "📊 Slides":
         pdf_viewer(unit, "Slides")
 
-    with tab_rev:
+    else:
         st.markdown(REVISION[unit])
